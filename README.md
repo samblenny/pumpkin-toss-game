@@ -68,8 +68,7 @@ CircuitPython core)**
 2. Follow the instructions in the
    [Web Serial ESPTool](https://learn.adafruit.com/circuitpython-with-esp32-quick-start/web-serial-esptool)
    section of the "CircuitPython on ESP32 Quick Start" learn guide to update
-   your board with CircuitPython 9.1.3. First erasing the board's contents,
-   then programming it with the .BIN file.
+   your board: first erase the flash, then program the .BIN file.
 
 
 ## Installing CircuitPython Code
