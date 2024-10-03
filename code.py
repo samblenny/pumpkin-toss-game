@@ -36,6 +36,7 @@ from supervisor import ticks_ms
 from usb.core import USBError
 from time import sleep
 
+import adafruit_imageload
 from adafruit_st7789 import ST7789
 from gamepad import (
     XInputGamepad, UP, DOWN, LEFT, RIGHT, START, SELECT, A, B, X, Y)
@@ -88,8 +89,11 @@ def main():
 
     # Configure display's root group
     gc.collect()
-    grp = Group(scale=1)
-#     grp.append()
+    (bmp, pal) = adafruit_imageload.load(
+        "pumpkin-toss-bkgnd.png", bitmap=Bitmap, palette=Palette)
+    bkgnd = TileGrid(bmp, pixel_shader=pal)
+    grp = Group(scale=2)
+    grp.append(bkgnd)
     display.root_group = grp
     display.refresh()
 
