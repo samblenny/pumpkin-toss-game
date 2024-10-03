@@ -90,3 +90,41 @@ To learn more about copying libraries to your CIRCUITPY drive, check out the
 section of the
 [Welcome to CircuitPython!](https://learn.adafruit.com/welcome-to-circuitpython)
 learn guide.
+
+
+## Sprites and Background
+
+I use these zoomed in and annotated views of my background and spritesheet to
+get coordinates and sprite numbers to put in my code.
+
+
+### Background
+
+![lofi pixel art background with hill, trees, moon, catapult, and skeletons](bkgnd-with-grid.jpeg)
+
+
+## Spritesheet
+
+![lofi pixel art sprites for pumpkin, catapult, and skeletons](sprites-with-grid.jpeg)
+
+
+## Pumpkin Flight Physics
+
+These are some notes from my lazy attempt at modeling vaguely accurate pumpkin
+ballistics. To read about doing this properly, some potentially useful search
+terms include: rigid body dynamics, projectile motion, classical mechanics,
+drag coefficient, drag equation, and ballistic flight.
+
+The most readily useable references I found for calculating displacement as a
+function of time and initial velocity were from NASA's Glenn Research Center:
+- [Ballistic Flight Calculator](https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/fltcalc/)
+- [Ballistic Flight Equations](https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/ballistic-flight-equations/)
+- [Flight Equations with Drag](https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/flight-equations-with-drag/)
+
+Apparently, a medium pie pumpkin could plausibly measure 20 cm in diameter with
+a mass of 3 kg. So, I'll base my calculations on a standard "spherical" pumpkin
+with these stats:
+
+| Mass | Diameter | Cross-sectional Area | Drag Coefficient |
+| ---- | -------- | -------------------- | ---------------- |
+| 3 kg | 0.2 m    | 0.031 m^2            | 0.7              |
