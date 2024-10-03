@@ -20,16 +20,18 @@ class StateMachine:
 
     # States (private)
     # CAUTION: These values must match row indexes of StateMachine.TABLE
-    _TITLE = const(0)
-    _READY = const(1)
-    _TOSS  = const(2)
-    _SCORE = const(3)
+    _TITLE  = const(0)
+    _READY  = const(1)
+    _CHARGE = const(2)
+    _TOSS   = const(3)
+    _SCORE  = const(4)
 
     # Lookup table for resolving state constants to names
     _STATE_NAMES = {
         _TITLE:   "Title",
         _READY:   "Ready",
-        _TOSS:    "Toss_",
+        _CHARGE:  "Charge",
+        _TOSS:    "Toss",
         _SCORE:   "Score",
     }
 
@@ -39,7 +41,6 @@ class StateMachine:
     _LOAD   = const(12)
     _AIMUP  = const(13)
     _AIMDN  = const(14)
-    _CHARGE = const(15)
 
     # LookUp Table (private) of actions (including NOP and state transitions)
     # for possible button press events in each of the possible states. NOP is
@@ -47,7 +48,8 @@ class StateMachine:
     _TABLE = (
         # UP      DOWN   A_DN,    A_HOLD,  A_UP,  START    State
         (_NOP,    _NOP,  _NOP,    _NOP,    _NOP,  _PLAY),  # title (start screen)
-        (_AIMUP, _AIMDN, _CHARGE, _CHARGE, _TOSS, _NOP ),  # ready (pumpkin loaded)
+        (_AIMUP, _AIMDN, _CHARGE, _NOP,    _NOP,  _NOP ),  # ready (pumpkin loaded)
+        (_AIMUP, _AIMDN, _NOP,    _CHARGE, _TOSS, _NOP ),  # charge (charging launcher)
         (_NOP,    _NOP,  _NOP,    _NOP,    _NOP,  _NOP ),  # toss (pumpkin toss animation)
         (_NOP,    _NOP,  _NOP,    _NOP,    _NOP,  _PLAY),  # score (end screen)
     )
@@ -78,13 +80,16 @@ class StateMachine:
         self.state = _READY
 
     def paint(self):
-        # TODO repaint the scene
+        # Repaint the scene
         s = self._STATE_NAMES[self.state]
         a = self.angle
         t = self.timer
         c = self.charge
         p = self.pumpkins
-        print(f"{s}: pumpkins: {p}, angle: {a}, timer: {t}, charge: {c}")
+        if self.state == _CHARGE:
+            print("charge:", c)
+        else:
+            print(f"{s}: pumpkins: {p}, angle: {a}, timer: {t}, charge: {c}")
 
     def tick(self, elapsed_ms):
         # Update animations and timer-based state transitions
@@ -99,14 +104,14 @@ class StateMachine:
         frame_ms = self.frame_ms + elapsed_ms
         if(frame_ms < _FRAME_MS):
             self.frame_ms = frame_ms
-            return False  # NOTE: this returns early!
+            return False   # CAUTION: this returns early, skipping code below!
         else:
             self.frame_ms = frame_ms % _FRAME_MS
 
         # Update pumpkin flight animation
         if self.state == _TOSS:
+            self.need_repaint = True
             if t1 <= 0:
-                self.need_repaint = True
                 print("SPLAT!")
                 # TODO: compute collision and adjust score
                 print("TODO: compute collision and adjust score")
@@ -152,6 +157,8 @@ class StateMachine:
             self.angle = max(_ANGLE_MIN, self.angle - 5)
             self.need_repaint = True
         elif a == _CHARGE:
+            if self.state == _READY:
+                self.state = _CHARGE
             self.charge = min(_CHARGE_MAX, self.charge + 1)
             self.need_repaint = True
         elif a == _TOSS:
