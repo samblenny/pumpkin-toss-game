@@ -38,8 +38,10 @@ from time import sleep
 
 import adafruit_imageload
 from adafruit_st7789 import ST7789
+from catapult import Catapult
 from gamepad import (
     XInputGamepad, UP, DOWN, LEFT, RIGHT, START, SELECT, A, B, X, Y)
+from skeletons import Skeletons
 from statemachine import StateMachine
 
 
@@ -59,10 +61,8 @@ def handle_input(machine, prev, buttons, repeat):
             mh(machine.A_DN)
         elif (diff & A) and (not (buttons & A)):  # A released
             mh(machine.A_UP)
-        elif (diff & UP) and (buttons == UP):  # UP pressed
-            mh(machine.UP)
-        elif (diff & DOWN) and (buttons == DOWN):  # DOWN pressed
-            mh(machine.DOWN)
+        elif (diff & SELECT) and (buttons == SELECT):  # SELECT pressed
+            mh(machine.SELECT)
         elif (diff & START) and (buttons == START):  # START pressed
             mh(machine.START)
 
@@ -89,16 +89,30 @@ def main():
 
     # Configure display's root group
     gc.collect()
+    # Background image with moon, trees, hill, and grass
     (bmp, pal) = adafruit_imageload.load(
         "pumpkin-toss-bkgnd.png", bitmap=Bitmap, palette=Palette)
     bkgnd = TileGrid(bmp, pixel_shader=pal)
+    gc.collect()
+    # Load shared spritesheet for catapult, pumpkin and skeleton cycles
+    (bmp, pal) = adafruit_imageload.load(
+        "pumpkin-toss-sprites.png", bitmap=Bitmap, palette=Palette)
+    # Mark background color (black) as transparent
+    pal.make_transparent(0)
+    # Prepare catapult and skeletons (they manage their own TileGrid Groups)
+    cat = Catapult(bmp, pal, x=0, y=25, splat_y=57)
+    skels = Skeletons(bmp, pal, x0=60, y0=46, x1=112, y1=40)
+    # Arrange Groups
     grp = Group(scale=2)
     grp.append(bkgnd)
+    grp.append(cat.group())
+    grp.append(skels.group())
     display.root_group = grp
     display.refresh()
 
-    # Start state machine
-    machine = StateMachine(pumpkins=10)
+    # Start state machine with catapult and skeleton object references so it
+    # can update the sprite animations as needed
+    machine = StateMachine(cat, skels)
 
     # Initialize MAX3421E USB host chip which is needed by usb.core.
     print("Initializing USB host port...")
@@ -174,8 +188,9 @@ def main():
                         handle_input(machine, prev_btn, buttons, False)
                     # Save button values
                     prev_btn = buttons
-                    # Update animations and display if needed
-                    if machine.tick(interval):
+                    # UPDATE ANIMATIONS and refresh display if needed
+                    need_refresh = machine.tick(interval)
+                    if need_refresh:
                         _refresh()
                 # If loop stopped, gamepad connection was lost
                 print(GP_DISCON)
