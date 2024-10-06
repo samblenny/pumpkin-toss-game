@@ -48,7 +48,40 @@ class Catapult:
         21,  # SPLAT3: full splat
     )
 
-    def __init__(self, bitmap, palette, x, y, splat_y):
+    # Catapult charge-up power limits (public)
+    CHARGE_ZERO = const(0)   # hide the charge-up bar
+    CHARGE_MAX  = const(20)  # 100% power
+
+    # Tiles for the catapult charge-up indicator bar. The indicator bar goes
+    # from 0% to 100% in 20 increments (bars) of 5% each. The charge bar is
+    # seven 8x8 tiles wide. The leftmost and rightmost tiles are the ends of
+    # the rounded rectangle. The 5 inner 8x8 tiles can each represent 4 bars of
+    # charge (1 bar == 2 px).
+    _CHG_TILES = (
+        (0, 0, 0, 0, 0, 0, 0),  # CHARGE_ZERO: transparent (hide charge bar)
+        (1, 3, 2, 2, 2, 2, 7),  #  1/20
+        (1, 4, 2, 2, 2, 2, 7),  #  2/20
+        (1, 5, 2, 2, 2, 2, 7),  #  3/20
+        (1, 6, 2, 2, 2, 2, 7),  #  4/20
+        (1, 6, 3, 2, 2, 2, 7),  #  5/20
+        (1, 6, 4, 2, 2, 2, 7),  #  6/20
+        (1, 6, 5, 2, 2, 2, 7),  #  7/20
+        (1, 6, 6, 2, 2, 2, 7),  #  8/20
+        (1, 6, 6, 3, 2, 2, 7),  #  9/20
+        (1, 6, 6, 4, 2, 2, 7),  # 10/20
+        (1, 6, 6, 5, 2, 2, 7),  # 11/20
+        (1, 6, 6, 6, 2, 2, 7),  # 12/20
+        (1, 6, 6, 6, 3, 2, 7),  # 13/20
+        (1, 6, 6, 6, 4, 2, 7),  # 14/20
+        (1, 6, 6, 6, 5, 2, 7),  # 15/20
+        (1, 6, 6, 6, 6, 2, 7),  # 16/20
+        (1, 6, 6, 6, 6, 3, 7),  # 17/20
+        (1, 6, 6, 6, 6, 4, 7),  # 18/20
+        (1, 6, 6, 6, 6, 5, 7),  # 19/20
+        (1, 6, 6, 6, 6, 6, 7),  # 20/20 = CHARGE_MAX
+    )
+
+    def __init__(self, bitmap, palette, x, y, splat_y, chg_x, chg_y):
         # This sets up catapult and pumpkin sprites.
         # Args:
         # - bitmap, palette: Shared spritesheet from adafruit_imageload
@@ -64,6 +97,11 @@ class Catapult:
             bitmap, pixel_shader=palette, width=2, height=2,
             tile_width=8, tile_height=8, x=x, y=y)
         gc.collect()
+        # Make catapult charge-up indicator TileGrid
+        tgchg = TileGrid(
+            bitmap, pixel_shader=palette, width=7, height=1,
+            tile_width=8, tile_height=8, x=chg_x, y=chg_y)
+        gc.collect()
         # Make pumpkin TileGrid
         tgp = TileGrid(
             bitmap, pixel_shader=palette, width=1, height=1,
@@ -72,25 +110,35 @@ class Catapult:
         # Arrange TileGrids into a group
         grp = Group(scale=1)
         grp.append(tgc)
+        grp.append(tgchg)
         grp.append(tgp)
         # Save arguments and object references
         self.x = x
         self.y = y
         self.splat_y = y
         self.tgc = tgc
+        self.tgchg = tgchg
         self.tgp = tgp
         self.grp = grp
-        # Set sprite tiles for catapult and pumpkin to initial animation frame
+        # Set sprite tiles for initial animation frame
         self.set_catapult(LOAD)
+        self.set_charge(CHARGE_ZERO)
         self.set_pumpkin(HIDE, 0, 0)
 
     def group(self):
         # Return the displayio.Group object for catapult and pumpkin TileGrids
         return self.grp
 
+    def set_charge(self, power):
+        # Set catapult charge-up indicator bar
+        if (CHARGE_ZERO <= power) and (power <= CHARGE_MAX):
+            for (i, tile) in enumerate(self._CHG_TILES[power]):
+                self.tgchg[i] = tile
+        else:
+            raise Exception(f"charge power out of range: {power}")
+
     def set_catapult(self, frame):
         # Set catapult sprite tiles for the specified animation cycle frame
-        print(f"SET_CATAPULT({frame})")
         if (LOAD <= frame) and (frame <= TOSS3):
             (topL, topR, botL, botR) = self._C_TILES[frame]
             self.tgc[0] = topL

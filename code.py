@@ -100,7 +100,7 @@ def main():
     # Mark background color (black) as transparent
     pal.make_transparent(0)
     # Prepare catapult and skeletons (they manage their own TileGrid Groups)
-    cat = Catapult(bmp, pal, x=0, y=25, splat_y=57)
+    cat = Catapult(bmp, pal, x=0, y=25, splat_y=57, chg_x=0, chg_y=8)
     skels = Skeletons(bmp, pal, x0=60, y0=46, x1=112, y1=40)
     # Arrange Groups
     grp = Group(scale=2)
@@ -139,8 +139,8 @@ def main():
     print(GP_FIND)
     # OUTER LOOP: try to connect to a USB gamepad.
     # Start timers for gamepad button hold detection.
-    DELAY_MS  = const(300)  # Gamepad button hold delay before repeat (ms)
-    REPEAT_MS = const(300)  # Gamepad button interval between repeats (ms)
+    DELAY_MS  = const(133)  # Gamepad button hold delay before repeat (ms)
+    REPEAT_MS = const(133)  # Gamepad button interval between repeats (ms)
     prev_ms = _ms()
     hold_tmr = 0
     repeat_tmr = 0

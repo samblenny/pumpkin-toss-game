@@ -64,9 +64,10 @@ class StateMachine:
     _PX = const(4)
     _PY = const(1)
 
-    # Pumpkin flight initial velocity (px/ms): horizontal (_PU), vertical (_PV)
-    _PV = 400 / 1000
-    _PU = 400 / 1000
+    # Pumpkin flight initial velocity (px/ms) when catapult is 100% charged.
+    # Horizontal velocity is _PU. Vertical velocity is _PV.
+    _PV = 750 / 1000
+    _PU = 1600 / 1000
 
     # Pumpkin acceleration due to gravity (px/ms)
     _PG = 10 / 1000
@@ -84,9 +85,10 @@ class StateMachine:
     def load_pumpkin(self):
         # Reset state for firing a pumpkin
         self.timer = 0
-        self.charge = 0.75
+        self.charge = Catapult.CHARGE_ZERO
         self.pumpkin_xyvu = (_PX, _PY, self._PV, self._PU)
         self.catapult.set_catapult(Catapult.LOAD)
+        self.catapult.set_charge(Catapult.CHARGE_ZERO)
         self.catapult.set_pumpkin(Catapult.HIDE, _PX, _PY)
         self.state = _READY
 
@@ -124,6 +126,7 @@ class StateMachine:
 
         # Update pumpkin flight animation
         _set_cat = self.catapult.set_catapult
+        _set_charge = self.catapult.set_charge
         _set_pumpkin = self.catapult.set_pumpkin
         if self.state == _TOSS:
             self.need_repaint = True
@@ -183,11 +186,16 @@ class StateMachine:
         elif a == _CHARGE:
             if self.state == _READY:
                 self.state = _CHARGE
-            self.charge = min(_CHARGE_MAX, self.charge + 0.25)
+            self.charge = min(Catapult.CHARGE_MAX, self.charge + 1)
+            self.catapult.set_charge(self.charge)
             self.need_repaint = True
         elif a == _TOSS:
             (x, y, v, u) = self.pumpkin_xyvu
-            self.pumpkin_xyvu = (x, y, v, self._PU * self.charge)
+            power_percent = self.charge / Catapult.CHARGE_MAX
+            v = self._PV * (0.5 * (1 + power_percent))
+            u = self._PU * power_percent
+            self.pumpkin_xyvu = (x, y, v, u)
+            self.catapult.set_charge(Catapult.CHARGE_ZERO)
             self.state = _TOSS
             self.timer = 0
             self.need_repaint = True
