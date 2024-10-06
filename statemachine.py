@@ -9,7 +9,7 @@ from catapult import Catapult
 class StateMachine:
 
     # Animation frame duration in ms for target frame rate
-    _FRAME_MS = const(64)
+    _FRAME_MS = const(33)
 
     # Maximum timer time in ms = (2**30) - 1
     _MAX_MS = const(1073741823)
@@ -58,24 +58,36 @@ class StateMachine:
     )
 
     # Maximum catapult launch power (private)
-    _CHARGE_MAX = const(30)
+    _CHARGE_MAX = const(5)
+
+    # Pumpkin flight out-of-basket initial position (_PX, _PY)
+    _PX = const(4)
+    _PY = const(1)
+
+    # Pumpkin flight initial velocity (px/ms): horizontal (_PU), vertical (_PV)
+    _PV = 400 / 1000
+    _PU = 400 / 1000
+
+    # Pumpkin acceleration due to gravity (px/ms)
+    _PG = 10 / 1000
 
     def __init__(self, catapult, skeletons):
+        # Initialize state machine, saving catapult and skeleton references
         self.catapult = catapult
         self.skeletons = skeletons
         self.prev_state = None
-        self.new_game(state=_TITLE)
+        self.load_pumpkin()
+        self.state = _TITLE
         self.frame_ms = 0
         self.need_repaint = True
 
-    def new_game(self, state=_READY):
-        self.timer = 0
-        self.charge = 0
-        self.state = state
-
     def load_pumpkin(self):
+        # Reset state for firing a pumpkin
         self.timer = 0
-        self.charge = 0
+        self.charge = 0.75
+        self.pumpkin_xyvu = (_PX, _PY, self._PV, self._PU)
+        self.catapult.set_catapult(Catapult.LOAD)
+        self.catapult.set_pumpkin(Catapult.HIDE, _PX, _PY)
         self.state = _READY
 
     def paint(self):
@@ -112,8 +124,10 @@ class StateMachine:
 
         # Update pumpkin flight animation
         _set_cat = self.catapult.set_catapult
+        _set_pumpkin = self.catapult.set_pumpkin
         if self.state == _TOSS:
             self.need_repaint = True
+            (x, y, v, u) = self.pumpkin_xyvu
             if t1 <= _FRAME_MS * 1:
                 _set_cat(Catapult.LOAD)
             elif t1 <= _FRAME_MS * 2:
@@ -122,13 +136,22 @@ class StateMachine:
                 _set_cat(Catapult.TOSS2)
             elif t1 <= _FRAME_MS * 4:
                 _set_cat(Catapult.TOSS3)
-            elif t1 > 2000:
+                _set_pumpkin(Catapult.FLY, x, y)
+            elif (t1 > 3000) or (y >= self.catapult.splat_y):
                 print("SPLAT!")
                 print("TODO: compute collision and trigger splat cycle")
-                _set_cat(Catapult.LOAD)
-                self.state = _READY
+                self.load_pumpkin()
             else:
-                print(" flying", t1)
+                # Pumpkin in flight: update position
+                x += u * elapsed_ms
+                y -= v * elapsed_ms
+                # ajust vertical velocity for acceleration due to gravity
+                v -= self._PG * elapsed_ms
+                # adjust horizontal velocity for acceleration due to drag
+                # (this is not physically realistic, I just tuned it for feel)
+                u = max(0.2 * self._PU, u - (((u ** 2) * 0.01) * elapsed_ms))
+                _set_pumpkin(Catapult.FLY, x, y)
+                self.pumpkin_xyvu = (x, y, v, u)
 
         # Update screen; returns True if caller should refresh hardware display
         if self.need_repaint:
@@ -155,14 +178,16 @@ class StateMachine:
         if a == _NOP:
             pass
         elif a == _PLAY:
-            self.new_game(state=_READY)
+            self.load_pumpkin()
             self.need_repaint = True
         elif a == _CHARGE:
             if self.state == _READY:
                 self.state = _CHARGE
-            self.charge = min(_CHARGE_MAX, self.charge + 1)
+            self.charge = min(_CHARGE_MAX, self.charge + 0.25)
             self.need_repaint = True
         elif a == _TOSS:
+            (x, y, v, u) = self.pumpkin_xyvu
+            self.pumpkin_xyvu = (x, y, v, self._PU * self.charge)
             self.state = _TOSS
             self.timer = 0
             self.need_repaint = True

@@ -73,13 +73,16 @@ class Catapult:
         grp = Group(scale=1)
         grp.append(tgc)
         grp.append(tgp)
-        # Save object references
+        # Save arguments and object references
+        self.x = x
+        self.y = y
+        self.splat_y = y
         self.tgc = tgc
         self.tgp = tgp
         self.grp = grp
         # Set sprite tiles for catapult and pumpkin to initial animation frame
         self.set_catapult(LOAD)
-        self.set_pumpkin(HIDE)
+        self.set_pumpkin(HIDE, 0, 0)
 
     def group(self):
         # Return the displayio.Group object for catapult and pumpkin TileGrids
@@ -97,9 +100,12 @@ class Catapult:
         else:
             raise Exception(f"catapult frame out of range: {frame}")
 
-    def set_pumpkin(self, frame):
-        # Set pumpkin sprite tile for the specified animation cycle frame
+    def set_pumpkin(self, frame, x, y):
+        # Set pumpkin sprite tile and relative position for the specified
+        # animation cycle frame. Pumpkin (x,y) is relative to catapult (x,y).
         if (HIDE <= frame) and (frame <= SPLAT3):
-            self.tgp = self._P_TILES[frame]
+            self.tgp[0] = self._P_TILES[frame]
+            self.tgp.x = self.x + round(x)  # x argument can be float
+            self.tgp.y = self.y + round(y)  # y argument can be float
         else:
             raise Exception(f"pumpkin frame out of range: {frame}")
