@@ -24,6 +24,10 @@
 # - https://learn.adafruit.com/adafruit-esp32-s3-tft-feather
 # - https://learn.adafruit.com/adafruit-1-14-240x135-color-tft-breakout
 # - https://learn.adafruit.com/adafruit-usb-host-featherwing-with-max3421e
+# - https://docs.circuitpython.org/en/latest/shared-bindings/displayio/
+# - https://docs.circuitpython.org/projects/display_text/en/latest/api.html
+# - https://learn.adafruit.com/circuitpython-display_text-library?view=all
+# -
 #
 from board import D9, D10, D11, I2C, SPI, TFT_CS, TFT_DC
 from digitalio import DigitalInOut, Direction
@@ -34,8 +38,10 @@ from max3421e import Max3421E
 from micropython import const
 from supervisor import ticks_ms
 from usb.core import USBError
+from terminalio import FONT
 from time import sleep
 
+from adafruit_display_text import bitmap_label
 import adafruit_imageload
 from adafruit_st7789 import ST7789
 from catapult import Catapult
@@ -138,13 +144,24 @@ def main():
     cat = Catapult(bmp2, pal2, x=0, y=25, splat_y=57, chg_x=0, chg_y=8)
     skels = Skeletons(bmp2, pal2, x0=60, y0=46, x1=112, y1=40)
 
-    # Add all the TileGrids and sub-groups into a display group with 2x scaling
-    grp = Group(scale=2)
-    grp.append(bkgnd)
-    grp.append(cat.group())
-    grp.append(skels.group())
-    grp.append(title_screen)
-    display.root_group = grp
+    # Make a text label for status messages
+    status = bitmap_label.Label(FONT, text="", color=0xFF8000)
+    status.x = 8  # NOTE: these are 1x coordinates! (sprites use 2x)
+    status.y = 8  # NOTE: these are 1x coordinates! (sprites use 2x)
+
+    # Arrange all the TileGrids and sub-groups into the root display group. The
+    # sprites and background use 2x scaling (grp2), but the status line goes in
+    # a 1x scaled group (grp1) because the built-in font looks huge at 2x.
+    #
+    grp1 = Group(scale=1)
+    grp2 = Group(scale=2)
+    grp2.append(bkgnd)
+    grp2.append(cat.group())
+    grp2.append(skels.group())
+    grp2.append(title_screen)
+    grp1.append(grp2)
+    grp1.append(status)
+    display.root_group = grp1
     display.refresh()
 
     # This initializes the state machine object, giving it references to the
@@ -169,7 +186,7 @@ def main():
     #    updates for different sprites to happen together in the same animation
     #    frame, with hopefully just one display refresh per frame.
     #
-    machine = StateMachine(grp, cat, skels, title_screen)
+    machine = StateMachine(grp2, cat, skels, title_screen, status)
 
     # Initialize MAX3421E USB host chip which is needed by usb.core to make
     # gamepad input work.
@@ -265,6 +282,7 @@ def main():
                     need_refresh = machine.tick(interval)
                     if need_refresh:
                         _refresh()
+                        _collect()
                 # If loop stopped, gamepad connection was lost
                 print(GP_DISCON)
                 print(GP_FIND)

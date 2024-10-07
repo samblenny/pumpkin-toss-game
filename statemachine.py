@@ -72,12 +72,20 @@ class StateMachine:
     # Pumpkin acceleration due to gravity (px/ms)
     _PG = 10 / 1000
 
-    def __init__(self, group, catapult, skeletons, title_screen):
+    def __init__(self, group, catapult, skeletons, title_screen, status):
         # Initialize state machine, saving catapult and skeleton references
+        # args:
+        # - group: displayio.Group (initially contains title_screen)
+        # - catapult: catapult.Catapult that manages catapult/pumpkin sprites
+        # - skeletons: skeletons.Skeletons that manages skeleton sprites
+        # - title_screen: displayio.TileGrid (initially contained by group)
+        # - status: adafruit_display_text.bitmap_label.Label for status text
+        #
         self.group = group
         self.catapult = catapult
         self.skeletons = skeletons
         self.title_screen = title_screen
+        self.status = status
         self.prev_state = None
         self.load_pumpkin()
         self.state = _TITLE
@@ -184,10 +192,12 @@ class StateMachine:
         elif a == _CHARGE:
             if self.state == _READY:
                 self.state = _CHARGE
+                self.status.text = "Pumpkin Power"
             self.charge = min(Catapult.CHARGE_MAX, self.charge + 1)
             self.catapult.set_charge(self.charge)
             self.need_repaint = True
         elif a == _TOSS:
+            self.status.text = ""
             print("FIRE!")
             (x, y, v, u) = self.pumpkin_xyvu
             power_percent = self.charge / Catapult.CHARGE_MAX
