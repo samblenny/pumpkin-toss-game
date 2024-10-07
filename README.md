@@ -110,21 +110,25 @@ get coordinates and sprite numbers to put in my code.
 
 ## Pumpkin Flight Physics
 
-These are some notes from my lazy attempt at modeling vaguely accurate pumpkin
-ballistics. To read about doing this properly, some potentially useful search
-terms include: rigid body dynamics, projectile motion, classical mechanics,
-drag coefficient, drag equation, and ballistic flight.
+Initially, I wanted to try accurately modelling pumpkin flight, including drag.
+That got messy because the Feather TFT screen is very small, with a wide aspect
+ratio, such that it's hard to show realistic trajectories for Earth gravity.
+
+Eventually, I just started making up velocity and acceleration numbers that, in
+my subjective opinion, "looked good". The math works by evaluating (x, y)
+displacement for each animation frame time interval. The horizontal velocity
+gets updated each animation frame with acceleration from "drag", and the
+vertical velocity gets updated with acceleration from "gravity". If those
+drag and gravity numbers are in any way realistic, it's purely by accident. I
+just made them up. The goal here is entertainment though, so it's fine.
+
+That said, if you want to read about accurate pumpkin flight math, some
+potentially useful search terms include: rigid body dynamics, projectile
+motion, classical mechanics, drag coefficient, drag equation, and ballistic
+flight.
 
 The most readily useable references I found for calculating displacement as a
 function of time and initial velocity were from NASA's Glenn Research Center:
 - [Ballistic Flight Calculator](https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/fltcalc/)
 - [Ballistic Flight Equations](https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/ballistic-flight-equations/)
 - [Flight Equations with Drag](https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/flight-equations-with-drag/)
-
-Apparently, a medium pie pumpkin could plausibly measure 20 cm in diameter with
-a mass of 3 kg. So, I'll base my calculations on a standard "spherical" pumpkin
-with these stats:
-
-| Mass | Diameter | Cross-sectional Area | Drag Coefficient |
-| ---- | -------- | -------------------- | ---------------- |
-| 3 kg | 0.2 m    | 0.031 m^2            | 0.7              |
