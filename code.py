@@ -75,11 +75,23 @@ def elapsed_ms(prev, now):
 
 
 def main():
+    # This function has initialization code and the main event loop. Under
+    # normal circumstances, this function does not return.
+
+    # The Feather TFT defaults to using the built-in display for a console.
+    # So, first, release the default display so we can re-initialize it below.
     release_displays()
     gc.collect()
+
+    # Initialize SPI bus which gets shared by ST7783 (TFT) and Max3421E (USB)
     spi = SPI()
 
     # Initialize ST7789 display with native display size of 240x135px.
+    # IMPORTANT: Note how auto_refresh is set to false. This gives the state
+    # machine and event loop code (see below) more direct control over when the
+    # display refreshes. The point is to minimize SPI bus contention between
+    # the display and the USB host chip, and to hopefully reduce tearing.
+    #
     TFT_W = const(240)
     TFT_H = const(135)
     bus = FourWire(spi, command=TFT_DC, chip_select=TFT_CS)
@@ -87,30 +99,46 @@ def main():
         colstart=53, auto_refresh=False)
     gc.collect()
 
-    # Configure display's root group
+    # Load PNG images and put them into TileGrid objects:
+    # This is is the most memory intensive thing in the whole program. Doing
+    # these large heap allocations early, then keeping the objects around for
+    # the the length of the program, helps to avoid memory fragmentation.
+    #
     gc.collect()
     # Background image with moon, trees, hill, and grass
-    (bmp, pal) = adafruit_imageload.load(
+    (bmp0, pal0) = adafruit_imageload.load(
         "pumpkin-toss-bkgnd.png", bitmap=Bitmap, palette=Palette)
-    bkgnd = TileGrid(bmp, pixel_shader=pal)
+    bkgnd = TileGrid(bmp0, pixel_shader=pal0)
     gc.collect()
-    # Load shared spritesheet for catapult, pumpkin and skeleton cycles
-    (bmp, pal) = adafruit_imageload.load(
+    # Title screen overlay
+    gc.collect()
+    (bmp1, pal1) = adafruit_imageload.load(
+            "pumpkin-toss-title.png", bitmap=Bitmap, palette=Palette)
+    x = ((TFT_W // 2) - bmp1.width) // 2
+    y = ((TFT_H // 2) - bmp1.height) // 2
+    title_screen = TileGrid(bmp1, pixel_shader=pal1, x=x, y=y)
+    # Shared spritesheet for catapult, pumpkin and skeleton animation cycles
+    (bmp2, pal2) = adafruit_imageload.load(
         "pumpkin-toss-sprites.png", bitmap=Bitmap, palette=Palette)
     gc.collect()
     # Mark background color (black) as transparent
-    pal.make_transparent(0)
-    # Prepare catapult and skeletons (they manage their own TileGrid Groups)
-    cat = Catapult(bmp, pal, x=0, y=25, splat_y=57, chg_x=0, chg_y=8)
-    skels = Skeletons(bmp, pal, x0=60, y0=46, x1=112, y1=40)
-    # Load title screen bitmap
-    gc.collect()
-    (bmp, pal) = adafruit_imageload.load(
-            "pumpkin-toss-title.png", bitmap=Bitmap, palette=Palette)
-    x = ((TFT_W // 2) - bmp.width) // 2
-    y = ((TFT_H // 2) - bmp.height) // 2
-    title_screen = TileGrid(bmp, pixel_shader=pal, x=x, y=y)
-    # Arrange Groups
+    pal2.make_transparent(0)
+
+    # Prepare instances of the Catapult and Skeletons classes using the shared
+    # spritesheet. These objects manage the details of setting TileGrid tiles
+    # to draw animation cycles for sprites. The main reasons for these classes
+    # are:
+    # 1. Have a dedicated spot for the lists of tile numbers that define each
+    #    frame of the various animation cycles
+    # 2. Export functions and constants that the state machine can use to
+    #    control animations at a higher level of abstraction (without having to
+    #    clutter the state machine code with tile numbers from the spritesheet)
+    # The x,y coordinates come from my bkgnd-with-grid.jpeg reference image.
+    #
+    cat = Catapult(bmp2, pal2, x=0, y=25, splat_y=57, chg_x=0, chg_y=8)
+    skels = Skeletons(bmp2, pal2, x0=60, y0=46, x1=112, y1=40)
+
+    # Add all the TileGrids and sub-groups into a display group with 2x scaling
     grp = Group(scale=2)
     grp.append(bkgnd)
     grp.append(cat.group())
@@ -119,40 +147,76 @@ def main():
     display.root_group = grp
     display.refresh()
 
-    # Start state machine with catapult and skeleton object references so it
-    # can update the sprite animations as needed
+    # This initializes the state machine object, giving it references to the
+    # sprite manager objects (Catapult and Skeletons). The point of structuring
+    # the code this way is to have the state machine be responsible for higher
+    # level timing and sprite behavior, while the sprite managers take care of
+    # low-level details about TileGrid changes. There's also some subtle memory
+    # allocation and data flow stuff going on here, with the goal of keeping
+    # display updates smooth, at a steady frame rate:
+    #
+    # 1. The sprite manager objects (cat and skels) contain references to
+    #    large bitmaps which were loaded above from PNG files. Allocating
+    #    these objects early and keeping references to them alive for the whole
+    #    length of the program helps to avoid memory fragmentation, flash
+    #    access, and pressure on the garbage collector. This should reduce
+    #    timing jitter due to memory allocations and garbage collection.
+    #
+    # 2. The state machine causes the sprite manager objects to update TileGrid
+    #    tile numbers, but calls to displayio.Display.refresh() only happen
+    #    in the event loop, here in the main() function (remember the display
+    #    was initialized with auto_refresh=false). This allows several tile
+    #    updates for different sprites to happen together in the same animation
+    #    frame, with hopefully just one display refresh per frame.
+    #
     machine = StateMachine(grp, cat, skels, title_screen)
 
-    # Initialize MAX3421E USB host chip which is needed by usb.core.
+    # Initialize MAX3421E USB host chip which is needed by usb.core to make
+    # gamepad input work.
     print("Initializing USB host port...")
     gc.collect()
     usbHost = Max3421E(spi, chip_select=D10, irq=D9)
     gc.collect()
     sleep(0.1)
 
-    # Gamepad status update strings
+    # Initialize gamepad manager object
+    gp = XInputGamepad()
+
+    # Gamepad status update strings for debug prints on the serial console
     GP_FIND   = 'Finding USB gamepad'
     GP_READY  = 'gamepad ready'
     GP_DISCON = 'gamepad disconnected'
     GP_ERR    = 'gamepad connection error'
 
     # Cache frequently used callables to save time on dictionary name lookups
+    # (this is a standard MicroPython performance boosting trick)
     _collect = gc.collect
     _elapsed = elapsed_ms
     _ms = ticks_ms
     _refresh = display.refresh
 
     # MAIN EVENT LOOP
-    # Establish and maintain a gamepad connection
-    gp = XInputGamepad()
-    print(GP_FIND)
-    # OUTER LOOP: try to connect to a USB gamepad.
-    # Start timers for gamepad button hold detection.
+    # This sets up a loop to run the following sequence over and over:
+    #
+    #  1. Attempt to poll a USB gamepad for button press inputs
+    #
+    #  2. Check for gamepad input events, and if needed, call the appropriate
+    #     state machine input event handler
+    #
+    #  3. Call the state machine's tick() function to update animations and
+    #     other timer-controlled state
+    #
+    #  4. If requested by the state machine, refresh the display
+    #
+
+    # Initialize timers for gamepad button hold detection.
     DELAY_MS  = const(133)  # Gamepad button hold delay before repeat (ms)
     REPEAT_MS = const(133)  # Gamepad button interval between repeats (ms)
     prev_ms = _ms()
     hold_tmr = 0
     repeat_tmr = 0
+    # OUTER LOOP: try to connect to a USB gamepad.
+    print(GP_FIND)
     while True:
         _collect()
         now_ms = _ms()
@@ -213,7 +277,6 @@ def main():
             # know how to deal with. So, log the error and keep going
             print(GP_ERR)
             print(GP_FIND)
-            _setMsg(GP_FIND, top=False)
             _refresh()
 
 
