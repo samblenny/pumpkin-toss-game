@@ -97,22 +97,31 @@ def main():
     # Load shared spritesheet for catapult, pumpkin and skeleton cycles
     (bmp, pal) = adafruit_imageload.load(
         "pumpkin-toss-sprites.png", bitmap=Bitmap, palette=Palette)
+    gc.collect()
     # Mark background color (black) as transparent
     pal.make_transparent(0)
     # Prepare catapult and skeletons (they manage their own TileGrid Groups)
     cat = Catapult(bmp, pal, x=0, y=25, splat_y=57, chg_x=0, chg_y=8)
     skels = Skeletons(bmp, pal, x0=60, y0=46, x1=112, y1=40)
+    # Load title screen bitmap
+    gc.collect()
+    (bmp, pal) = adafruit_imageload.load(
+            "pumpkin-toss-title.png", bitmap=Bitmap, palette=Palette)
+    x = ((TFT_W // 2) - bmp.width) // 2
+    y = ((TFT_H // 2) - bmp.height) // 2
+    title_screen = TileGrid(bmp, pixel_shader=pal, x=x, y=y)
     # Arrange Groups
     grp = Group(scale=2)
     grp.append(bkgnd)
     grp.append(cat.group())
     grp.append(skels.group())
+    grp.append(title_screen)
     display.root_group = grp
     display.refresh()
 
     # Start state machine with catapult and skeleton object references so it
     # can update the sprite animations as needed
-    machine = StateMachine(cat, skels)
+    machine = StateMachine(grp, cat, skels, title_screen)
 
     # Initialize MAX3421E USB host chip which is needed by usb.core.
     print("Initializing USB host port...")

@@ -72,10 +72,12 @@ class StateMachine:
     # Pumpkin acceleration due to gravity (px/ms)
     _PG = 10 / 1000
 
-    def __init__(self, catapult, skeletons):
+    def __init__(self, group, catapult, skeletons, title_screen):
         # Initialize state machine, saving catapult and skeleton references
+        self.group = group
         self.catapult = catapult
         self.skeletons = skeletons
+        self.title_screen = title_screen
         self.prev_state = None
         self.load_pumpkin()
         self.state = _TITLE
@@ -97,10 +99,6 @@ class StateMachine:
         s = self._STATE_NAMES[self.state]
         t = self.timer
         c = self.charge
-        if self.state == _CHARGE:
-            print("charge:", c)
-        else:
-            print(f"{s}: timer: {t}, charge: {c}")
 
     def tick(self, elapsed_ms):
         # Update animations and timer-based state transitions
@@ -142,7 +140,6 @@ class StateMachine:
                 _set_pumpkin(Catapult.FLY, x, y)
             elif (t1 > 3000) or (y >= self.catapult.splat_y):
                 print("SPLAT!")
-                print("TODO: compute collision and trigger splat cycle")
                 self.load_pumpkin()
             else:
                 # Pumpkin in flight: update position
@@ -181,6 +178,7 @@ class StateMachine:
         if a == _NOP:
             pass
         elif a == _PLAY:
+            self.group.remove(self.title_screen)
             self.load_pumpkin()
             self.need_repaint = True
         elif a == _CHARGE:
@@ -190,6 +188,7 @@ class StateMachine:
             self.catapult.set_charge(self.charge)
             self.need_repaint = True
         elif a == _TOSS:
+            print("FIRE!")
             (x, y, v, u) = self.pumpkin_xyvu
             power_percent = self.charge / Catapult.CHARGE_MAX
             v = self._PV * (0.5 * (1 + power_percent))
