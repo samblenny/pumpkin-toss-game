@@ -12,11 +12,8 @@
 # |  SCK        |  SCK     |            |
 # |  MOSI       |  MOSI    |            |
 # |  MISO       |  MISO    |            |
-# |  SDA        |          |            |
-# |  SCL        |          |            |
 # |  D9         |  IRQ     |            |
 # |  D10        |  CS      |            |
-# |  D11        |          |            |
 # |  TFT_CS     |          |  CS        |
 # |  TFT_DC     |          |  DC        |
 #
@@ -27,9 +24,8 @@
 # - https://docs.circuitpython.org/en/latest/shared-bindings/displayio/
 # - https://docs.circuitpython.org/projects/display_text/en/latest/api.html
 # - https://learn.adafruit.com/circuitpython-display_text-library?view=all
-# -
 #
-from board import D9, D10, D11, I2C, SPI, TFT_CS, TFT_DC
+from board import D9, D10, SPI, TFT_CS, TFT_DC
 from digitalio import DigitalInOut, Direction
 from displayio import Bitmap, Group, Palette, TileGrid, release_displays
 from fourwire import FourWire
@@ -52,7 +48,15 @@ from statemachine import StateMachine
 
 
 def handle_input(machine, prev, buttons, repeat):
-    # Respond to gamepad button state change events
+    # Respond to gamepad button state change events.
+    #
+    # This function translates from the packed bitfield of gamepad button
+    # states into the state machine's input event constants. If you wanted to
+    # remap the gamepad buttons, or convert this program to use a different
+    # type of gamepad (or keyboard, or mouse, etc), this function would be a
+    # great place to start. If you want to change how the input device works
+    # here, you'll probably also need to make some matching changes in main().
+    #
     diff = prev ^  buttons
     mh = machine.handleGamepad
     #print(f"{buttons:016b}")
@@ -75,7 +79,13 @@ def handle_input(machine, prev, buttons, repeat):
 
 def elapsed_ms(prev, now):
     # Calculate elapsed ms between two timestamps from supervisor.ticks_ms().
-    # The ticks counter rolls over at 2**29, and (2**29)-1 = 0x3fffffff
+    #
+    # The CircuitPython ticks counter rolls over at 2**29, so this uses a bit
+    # mask of (2**29)-1 = 0x3fffffff for the subtraction. If you want to learn
+    # more about why doing it this way gives the correct result even when the
+    # interval spans a rollover, try reading about "modular arithmetic",
+    # "integer overflow", and "two's complement" arithmetic.
+    #
     MASK = const(0x3fffffff)
     return (now - prev) & MASK
 
@@ -165,12 +175,13 @@ def main():
     display.refresh()
 
     # This initializes the state machine object, giving it references to the
-    # sprite manager objects (Catapult and Skeletons). The point of structuring
-    # the code this way is to have the state machine be responsible for higher
-    # level timing and sprite behavior, while the sprite managers take care of
-    # low-level details about TileGrid changes. There's also some subtle memory
-    # allocation and data flow stuff going on here, with the goal of keeping
-    # display updates smooth, at a steady frame rate:
+    # sprite manager objects (Catapult and Skeletons) and status text label
+    # object. The point of structuring the code this way is to have the state
+    # machine be responsible for higher level timing and sprite behavior, while
+    # the sprite managers take care of low-level details about TileGrid
+    # changes. There's also some subtle memory allocation and data flow stuff
+    # going on here, with the goal of keeping display updates smooth, at a
+    # steady frame rate:
     #
     # 1. The sprite manager objects (cat and skels) contain references to
     #    large bitmaps which were loaded above from PNG files. Allocating
@@ -196,7 +207,7 @@ def main():
     gc.collect()
     sleep(0.1)
 
-    # Initialize gamepad manager object
+    # Initialize gamepad manager object (see gamepad.py)
     gp = XInputGamepad()
 
     # Gamepad status update strings for debug prints on the serial console
@@ -236,6 +247,7 @@ def main():
     print(GP_FIND)
     while True:
         _collect()
+        # Begin by updating the display, even if gamepad is not connected
         now_ms = _ms()
         interval = _elapsed(prev_ms, now_ms)
         if interval >= 16:
@@ -248,10 +260,18 @@ def main():
             if gp.find_and_configure():
                 print(gp.device_info_str())
                 connected = True
-                # INNER LOOP: poll gamepad for button events
                 prev_btn = 0
                 hold_tmr = 0
                 repeat_tmr = 0
+                # INNER LOOP: gamepad is connected, so start polling buttons
+                #
+                # IMPORTANT: gp.poll() here is a generator that polls the
+                # gamepad buttons at the start of each iteration through this
+                # loop. Doing it this way avoids many memory allocations that
+                # would be required to poll using a regular class method call.
+                # The point of this approach is to get a better frame rate with
+                # less of latency and jitter.
+                #
                 for buttons in gp.poll():
                     # Update A-button timers
                     now_ms = _ms()
@@ -278,24 +298,58 @@ def main():
                         handle_input(machine, prev_btn, buttons, False)
                     # Save button values
                     prev_btn = buttons
-                    # UPDATE ANIMATIONS and refresh display if needed
+                    #
+                    # --- UPDATE ANIMATIONS & DISPLAY --------------------------
+                    # This part is short but very important. The call to
+                    # .tick() below lets the state machine update the animation
+                    # cycles for sprites and do whatever other timer-based
+                    # things need to be done. You could implement this in a
+                    # different way using async, but I prefer it this way. The
+                    # advantage of this approach is you can see how the gamepad
+                    # polling and state machine updates take turns.
+                    #
                     need_refresh = machine.tick(interval)
                     if need_refresh:
                         _refresh()
+                        # Doing garbage collection after every refresh makes
+                        # the loop run slower. But, it seems to reduce jitter,
+                        # making for a smoother frame rate. It's too close to
+                        # make an easy call, but this method seems to look
+                        # subjectively a little better than other ways I tried.
                         _collect()
-                # If loop stopped, gamepad connection was lost
+                    # ---------------------------------------------------------
+                    #
+                    # [END OF INNER LOOP]
+
+                # Making it here means gp.poll() decided to end the loop with a
+                # `return`, which is possible but not normal (see gamepad.py).
                 print(GP_DISCON)
                 print(GP_FIND)
             else:
-                # No connection yet, so sleep briefly then try again
+                # Making it here means no gamepad is connected, and when
+                # gp.find_and_configure() looked, it did not find one. This
+                # normal and often happens at boot time because it takes a
+                # while for all the USB stuff to initialize.
+                #
+                # Since there is no gamepad yet, wait a bit, then try again.
+                #
                 sleep(0.1)
         except USBError as e:
-            # This might mean gamepad was unplugged, or maybe some other
-            # low-level USB thing happened which this driver does not yet
-            # know how to deal with. So, log the error and keep going
+            # Making it here means there was a USBError exception during a call
+            # to gp.find_and_configure() or gp.poll().
+            #
+            # This is normal when someone unplugs the gamepad. When that
+            # happens, it's usually possible to reconnect without resetting
+            # CircuitPython. But, sometimes, more serious and mysterious
+            # USBError exceptions happen and usb.core gets confused. In that
+            # case, further calls to find_and_configure() don't work until
+            # after resetting the board.
+            #
+            # So, hope for the best, log the error, and stay in the outer loop
+            # so it can attempt to find a gamepad.
+            #
             print(GP_ERR)
             print(GP_FIND)
-            _refresh()
 
 
 main()
