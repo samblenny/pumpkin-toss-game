@@ -210,11 +210,12 @@ def main():
     # Initialize gamepad manager object (see gamepad.py)
     gp = XInputGamepad()
 
-    # Gamepad status update strings for debug prints on the serial console
-    GP_FIND   = 'Finding USB gamepad'
-    GP_READY  = 'gamepad ready'
-    GP_DISCON = 'gamepad disconnected'
-    GP_ERR    = 'gamepad connection error'
+    # Gamepad status update strings for debug prints on the serial console and
+    # display status line
+    GP_FIND  = 'Finding USB gamepad'
+    GP_READY = 'gamepad ready'
+    GP_ERR1  = 'USB ERR1: bug in code.py?'
+    GP_ERR2  = 'USB ERR2: gamepad unplugged?'
 
     # Cache frequently used callables to save time on dictionary name lookups
     # (this is a standard MicroPython performance boosting trick)
@@ -245,6 +246,8 @@ def main():
     repeat_tmr = 0
     # OUTER LOOP: try to connect to a USB gamepad.
     print(GP_FIND)
+    status.text = GP_FIND
+    _refresh()
     while True:
         _collect()
         # Begin by updating the display, even if gamepad is not connected
@@ -258,6 +261,8 @@ def main():
         try:
             # Attempt to connect to USB gamepad
             if gp.find_and_configure():
+                status.text = ""  # clear the "Finding USB gamepad" status text
+                _refresh()
                 print(gp.device_info_str())
                 connected = True
                 prev_btn = 0
@@ -323,8 +328,10 @@ def main():
 
                 # Making it here means gp.poll() decided to end the loop with a
                 # `return`, which is possible but not normal (see gamepad.py).
-                print(GP_DISCON)
+                print(GP_ERR1)
                 print(GP_FIND)
+                status.text = GP_ERR1
+                _refresh()
             else:
                 # Making it here means no gamepad is connected, and when
                 # gp.find_and_configure() looked, it did not find one. This
@@ -348,8 +355,10 @@ def main():
             # So, hope for the best, log the error, and stay in the outer loop
             # so it can attempt to find a gamepad.
             #
-            print(GP_ERR)
+            print(GP_ERR2)
             print(GP_FIND)
+            status.text = GP_ERR2
+            _refresh()
 
 
 main()
