@@ -77,14 +77,14 @@ class Skeletons:
         self.timers = [0] * _MAX_SKELLIES
         self.grp = grp
         # Set sprite tiles for initial animation frame (title screen)
-        for (n, f) in enumerate((RISE3, STAND1, STAND2)):
+        for (n, f) in enumerate((RISE3, STAND1, STAND2, STAND3)):
             self.set_skellie(n, f)
 
     def reset(self):
         # Reset skeletons for start of game (vs title screen)
         count = len(self.skellies)
         wake_timers = [7 * n * _TICKS_PER_FRAME for n in range(count)]
-        for (n, t) in enumerate(wake_timers):
+        for (n, t) in enumerate(reversed(wake_timers)):
             self.set_skellie(n, HIDE)
             self.frames[n] = HIDE
             self.timers[n] = t
