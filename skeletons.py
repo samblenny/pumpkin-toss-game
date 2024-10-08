@@ -42,14 +42,17 @@ class Skeletons:
     )
 
     # Upper limit on skeleton mob size
-    _MAX_SKELLIES = const(3)
+    _MAX_SKELLIES = const(4)
 
-    def __init__(self, bitmap, palette, x0, y0, x1, y1):
+    # Speed of rise and walk cycle animations in tick() calls per frame
+    _TICKS_PER_FRAME = const(9)
+
+    def __init__(self, bitmap, palette, x0, x1, y):
         # This sets up skeleton sprites.
         # Args:
         # - bitmap, palette: Shared spritesheet from adafruit_imageload
-        # - x0, y0: Skeleton spawn zone top-left corner coordinate
-        # - y0, y1: Skeleton spawn zone bottom-right corner coordinate
+        # - x0, x1: Skeleton spawn zone x coordinate range
+        # - y: Skeleton spawn zone y coordinate
         #
         # The spritesheet has 8x8 tiles. The skeleton sprite is 8x16 (2 tiles
         # tall). So, there are 2 tiles per sprite/frame of the animation cycle
@@ -64,16 +67,51 @@ class Skeletons:
             x = x0 + (((x1 - x0) // _MAX_SKELLIES) * i)
             tg = TileGrid(
                 bitmap, pixel_shader=palette, width=1, height=2,
-                tile_width=8, tile_height=8, x=x, y=y0)
+                tile_width=8, tile_height=8, x=x, y=y)
             skellies.append(tg)
             grp.append(tg)
         gc.collect()
         # Save object references
         self.skellies = skellies
+        self.frames = [HIDE] * _MAX_SKELLIES
+        self.timers = [0] * _MAX_SKELLIES
         self.grp = grp
-        # Set sprite tiles for initial animation frame
-        for i in range(len(self.skellies)):
-            self.set_skellie(i, i*2)
+        # Set sprite tiles for initial animation frame (title screen)
+        for (n, f) in enumerate((RISE3, STAND1, STAND2)):
+            self.set_skellie(n, f)
+
+    def reset(self):
+        # Reset skeletons for start of game (vs title screen)
+        count = len(self.skellies)
+        wake_timers = [7 * n * _TICKS_PER_FRAME for n in range(count)]
+        for (n, t) in enumerate(wake_timers):
+            self.set_skellie(n, HIDE)
+            self.frames[n] = HIDE
+            self.timers[n] = t
+
+    def tick(self):
+        # Update skeleton animation cycles (rise, idle, walk)
+        # Returns: True if display needs refresh, False if display unchanged
+        _frames = self.frames
+        _timers = self.timers
+        needs_refresh = False
+        for (i, (f, t)) in enumerate(zip(_frames, _timers)):
+            if t > 0:
+                # On ticks when the frame doesn't need to chage, just update
+                # the countdown timer for this skeleton
+                _timers[i] = t - 1
+            else:
+                # When the timer hits 0, update the animation frame and timer
+                if f <= STAND3:
+                    _frames[i] = f + 1
+                else:
+                    _frames[i] = STAND1
+                # Reset countdown timer
+                _timers[i] = _TICKS_PER_FRAME
+                # Update the TileGrid
+                self.set_skellie(i, _frames[i])
+                needs_refresh = True
+        return needs_refresh
 
     def group(self):
         # Return the displayio.Group object for the skeleton TileGrids

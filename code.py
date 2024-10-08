@@ -152,7 +152,7 @@ def main():
     # The x,y coordinates come from my bkgnd-with-grid.jpeg reference image.
     #
     cat = Catapult(bmp2, pal2, x=0, y=25, splat_y=57, chg_x=0, chg_y=8)
-    skels = Skeletons(bmp2, pal2, x0=60, y0=46, x1=112, y1=40)
+    skels = Skeletons(bmp2, pal2, x0=54, x1=116, y=44)
 
     # Make a text label for status messages
     status = bitmap_label.Label(FONT, text="", color=0xFF8000)
@@ -166,8 +166,8 @@ def main():
     grp1 = Group(scale=1)
     grp2 = Group(scale=2)
     grp2.append(bkgnd)
-    grp2.append(cat.group())
     grp2.append(skels.group())
+    grp2.append(cat.group())
     grp2.append(title_screen)
     grp1.append(grp2)
     grp1.append(status)

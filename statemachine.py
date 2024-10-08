@@ -161,6 +161,12 @@ class StateMachine:
                 _set_pumpkin(Catapult.FLY, x, y)
                 self.pumpkin_xyvu = (x, y, v, u)
 
+        # Update skeleton animations
+        s = self.state
+        if (s == _READY) or (s == _CHARGE) or (s == _TOSS):
+            if self.skeletons.tick():
+                self.need_repaint = True
+
         # Update screen; returns True if caller should refresh hardware display
         if self.need_repaint:
             self.paint()
@@ -188,6 +194,7 @@ class StateMachine:
         elif a == _PLAY:
             self.group.remove(self.title_screen)
             self.load_pumpkin()
+            self.skeletons.reset()
             self.need_repaint = True
         elif a == _CHARGE:
             if self.state == _READY:
