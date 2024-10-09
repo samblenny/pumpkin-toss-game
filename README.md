@@ -2,10 +2,46 @@
 <!-- SPDX-FileCopyrightText: Copyright 2024 Sam Blenny -->
 # Pumpkin Toss Game
 
-**WORK IN PROGRESS (ALPHA)**
+This is a game about skeletons, pumpkins, and a catapult having a Spooky Season
+experience in a forest clearing under the full moon. If you've thought about
+making a game in CircuitPython but aren't sure where to start, this project
+might be a useful source of ideas.
+
+![pumpkins vs skeletons title screen](title-screen.jpeg)
+
+
+### Charging a Pumpkin
+
+This is how it looks when you hold the USB gamepad's A button to charge up a
+pumpkin.
+
+![charging up a pumpkin](pumpkin-power.jpeg)
+
+
+### Pumpkin in Flight
+
+This is how it looks when a pumpkin is about to meet a skeleton.
+
+![a flying pumpkin](flying-pumpkin.jpeg)
+
+
+### Video Demo
+
+There's a game play video on youtube:
+
+https://www.youtube.com/watch?v=QStcSDSYKOE
 
 
 ## Hardware
+
+This uses the setup of ESP32-S3 Feather TFT, MAX3421E USB Host FeatherWing, and
+Feather Doubler that I've been using for previous USB gamepad projects. If you
+want more details on the hardware and gamepad stuff, you might check out some
+of my other Adafruit Playground guides:
+
+- [Feather TFT Gamepad Tester with Sprites](https://adafruit-playground.com/u/SamBlenny/pages/feather-tft-gamepad-tester-with-sprites)
+
+- [Feather TFT Clock with Gamepad Input](https://adafruit-playground.com/u/SamBlenny/pages/feather-tft-clock-with-gamepad-input)
 
 
 ### Parts
@@ -94,8 +130,36 @@ learn guide.
 
 ## Sprites and Background
 
-I use these zoomed in and annotated views of my background and spritesheet to
-get coordinates and sprite numbers to put in my code.
+I made sprites for this project using the Pixaki app for iPad.
+
+My general workflow for making a spritesheet and background image is:
+
+1. Open a new canvas of 120 pixels wide by 67 pixels high, with a black
+   background and a grid with 8 pixel spacing. This lets me get a good feel for
+   how things will look on a Feather TFT screen with 2x scaling using a
+   `displayio.Group(scale=2)`.
+
+2. Pick four colors for my palette (in this case black, gray, white, and orange)
+   and sketch my idea for how a scene will look once the game is done. By
+   separating things into different layers, it's easier to move stuff around
+   and experiment.
+
+3. Once I have a scene I like, make a new layer for the spritesheet and copy
+   chunks of the other layers into the spritesheet layer.
+
+4. Hide all the other layers except the spritesheet and the background, then
+   use Pixaki's PNG export feature to export the sprites. Also, take a
+   a screenshot with that includes the 8x8 grid lines. Annotating this
+   screenshot with sprite tile numbers makes it a lot easier to write the code
+   for assembling spritesheet tiles into sprites with animation cycles.
+
+5. Turn the spritesheet layer off, turn the other layers back on, then take a
+   screenshot with the 8x8 grid lines. Annotating this screenshot with pixel
+   numbers for the grid lines (0, 8, 16, 24, ...) makes it easier to set the
+   x= and y= arguments when I write the code to create displayio.TileGrid
+   objects for the sprites.
+
+7. Use AirDrop to transfer the screenshots and spritesheet PNG to my mac.
 
 
 ### Background
@@ -103,7 +167,7 @@ get coordinates and sprite numbers to put in my code.
 ![lofi pixel art background with hill, trees, moon, catapult, and skeletons](bkgnd-with-grid.jpeg)
 
 
-## Spritesheet
+### Spritesheet
 
 ![lofi pixel art sprites for pumpkin, catapult, and skeletons](sprites-with-grid.jpeg)
 
@@ -132,3 +196,20 @@ function of time and initial velocity were from NASA's Glenn Research Center:
 - [Ballistic Flight Calculator](https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/fltcalc/)
 - [Ballistic Flight Equations](https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/ballistic-flight-equations/)
 - [Flight Equations with Drag](https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/flight-equations-with-drag/)
+
+
+## Code
+
+For this project, I made a tiny game engine from scratch in CircuitPython using
+displayio, adafruit_display_text, and adafruit_imageload, usb.core,
+max3421e.Max3421E, and some other CircuitPython built-in libraries.
+
+The techniques I used are pretty straightforward, if a bit tedious. One of the
+big challenges is to stay organized so the coordinates and sprite tile numbers
+don't get mixed up. To help keep that stuff from cluttering up the rest of the
+code, I made two classes just for managing sprite animation cycles:
+catapult.Catapult and skeletons.Skeletons.
+
+To understand how the code works, I recommend that you start by reading through
+code.py. It has a lot of comments to help explain the context and rationale of
+how I structured the code and my strategy to keep the frame rate smooth.
