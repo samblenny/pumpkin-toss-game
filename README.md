@@ -145,11 +145,12 @@ My general workflow for making a spritesheet and background image is:
    and experiment.
 
 3. Once I have a scene I like, make a new layer for the spritesheet and copy
-   chunks of the other layers into the spritesheet layer.
+   chunks of the other layers into the spritesheet layer, aligning the tiles
+   into an 8x8 grid.
 
 4. Hide all the other layers except the spritesheet and the background, then
-   use Pixaki's PNG export feature to export the sprites. Also, take a
-   a screenshot with that includes the 8x8 grid lines. Annotating this
+   use Pixaki's PNG export feature to export the spritesheet. Also, take a a
+   screenshot of the spritesheet layer with the 8x8 grid lines. Annotating this
    screenshot with sprite tile numbers makes it a lot easier to write the code
    for assembling spritesheet tiles into sprites with animation cycles.
 
