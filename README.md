@@ -202,15 +202,16 @@ function of time and initial velocity were from NASA's Glenn Research Center:
 ## Code
 
 For this project, I made a tiny game engine from scratch in CircuitPython using
-displayio, adafruit_display_text, and adafruit_imageload, usb.core,
-max3421e.Max3421E, and some other CircuitPython built-in libraries.
+mostly built-in CircuitPython libraries. For sprites, I used displayio.TileGrid
+and adafruit_imageload. For the gamepad, I used usb.core and max3421e.Max3421E.
+For timing to regulate the frame rate, I used supervisor.ticks_ms.
 
-The techniques I used are pretty straightforward, if a bit tedious. One of the
-big challenges is to stay organized so the coordinates and sprite tile numbers
-don't get mixed up. To help keep that stuff from cluttering up the rest of the
-code, I made two classes just for managing sprite animation cycles:
-catapult.Catapult and skeletons.Skeletons.
+The techniques I used are pretty straightforward, if perhaps a bit tedious. One
+of the big challenges for a project like this is to stay organized so the
+coordinates and sprite tile numbers don't get mixed up. To help keep sprite
+tile stuff from cluttering up the rest of the code, I made two classes just for
+managing sprite animation cycles: catapult.Catapult and skeletons.Skeletons.
 
 To understand how the code works, I recommend that you start by reading through
-code.py. It has a lot of comments to help explain the context and rationale of
-how I structured the code and my strategy to keep the frame rate smooth.
+code.py. It has extensive comments to help explain the rationale of how I
+structured the code and the strategy I used to keep the frame rate smooth.
