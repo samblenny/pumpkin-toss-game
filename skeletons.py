@@ -47,6 +47,9 @@ class Skeletons:
     # Speed of rise and walk cycle animations in tick() calls per frame
     _TICKS_PER_FRAME = const(9)
 
+    # Delay before skeletons respawn
+    _RESPAWN_FRAMES = const(31)
+
     def __init__(self, bitmap, palette, x0, x1, y):
         # This sets up skeleton sprites.
         # Args:
@@ -72,6 +75,7 @@ class Skeletons:
             grp.append(tg)
         gc.collect()
         # Save object references
+        self.y = y
         self.skellies = skellies
         self.frames = [HIDE] * _MAX_SKELLIES
         self.timers = [0] * _MAX_SKELLIES
@@ -86,16 +90,32 @@ class Skeletons:
         wake_timers = [7 * n * _TICKS_PER_FRAME for n in range(count)]
         for (n, t) in enumerate(reversed(wake_timers)):
             self.set_skellie(n, HIDE)
-            self.frames[n] = HIDE
             self.timers[n] = t
+
+    def check_hit(self, px, py):
+        # Check for pumpkin collision with skeleton hitbox.
+        # args:
+        # - (px, py): screen coordinates of pumpkin sprite top-left corner
+        # returns: True for hitbox collision, False otherwise
+        if (py < self.y) or (py >= self.y + 10):
+            # Anything outside skeleton's top tile (head/torso) is a miss
+            return False
+        for (n, (f, s)) in enumerate(zip(self.frames, self.skellies)):
+            # Within the head/torso height range, check for x range alignment
+            left = s.x - 3
+            right = s.x + 3
+            if (f >= STAND1) and (left <= px) and (px <= right):
+                self.timers[n] = _RESPAWN_FRAMES * _TICKS_PER_FRAME
+                self.set_skellie(n, HIDE)
+                return True
+        return False
 
     def tick(self):
         # Update skeleton animation cycles (rise, idle, walk)
         # Returns: True if display needs refresh, False if display unchanged
-        _frames = self.frames
         _timers = self.timers
         needs_refresh = False
-        for (i, (f, t)) in enumerate(zip(_frames, _timers)):
+        for (i, (f, t)) in enumerate(zip(self.frames, _timers)):
             if t > 0:
                 # On ticks when the frame doesn't need to chage, just update
                 # the countdown timer for this skeleton
@@ -103,13 +123,11 @@ class Skeletons:
             else:
                 # When the timer hits 0, update the animation frame and timer
                 if f <= STAND3:
-                    _frames[i] = f + 1
+                    self.set_skellie(i, f + 1)
                 else:
-                    _frames[i] = STAND1
+                    self.set_skellie(i, STAND1)
                 # Reset countdown timer
                 _timers[i] = _TICKS_PER_FRAME
-                # Update the TileGrid
-                self.set_skellie(i, _frames[i])
                 needs_refresh = True
         return needs_refresh
 
@@ -124,6 +142,7 @@ class Skeletons:
         elif (frame < HIDE) or (STAND4 < frame):
             raise Exception(f"skeleton frame out of range: {frame}")
         else:
+            self.frames[n] = frame
             (top, bottom) = self._S_TILES[frame]
             self.skellies[n][0] = top
             self.skellies[n][1] = bottom

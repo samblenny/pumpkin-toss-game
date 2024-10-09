@@ -151,9 +151,15 @@ class Catapult:
     def set_pumpkin(self, frame, x, y):
         # Set pumpkin sprite tile and relative position for the specified
         # animation cycle frame. Pumpkin (x,y) is relative to catapult (x,y).
+        # Returns:
+        # - (x, y) coordinate of pumpkin in absolute screen px (vs x, y args
+        #   to this method which are relative to the catapult coordinates)
         if (HIDE <= frame) and (frame <= SPLAT3):
             self.tgp[0] = self._P_TILES[frame]
-            self.tgp.x = self.x + round(x)  # x argument can be float
-            self.tgp.y = self.y + round(y)  # y argument can be float
+            pumpkin_x = self.x + round(x)  # x argument can be float
+            pumpkin_y = self.y + round(y)  # y argument can be float
+            self.tgp.x = pumpkin_x
+            self.tgp.y = pumpkin_y
+            return (pumpkin_x, pumpkin_y)
         else:
             raise Exception(f"pumpkin frame out of range: {frame}")

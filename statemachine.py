@@ -158,8 +158,14 @@ class StateMachine:
                 # adjust horizontal velocity for acceleration due to drag
                 # (this is not physically realistic, I just tuned it for feel)
                 u = max(0.2 * self._PU, u - (((u ** 2) * 0.01) * elapsed_ms))
-                _set_pumpkin(Catapult.FLY, x, y)
+                # Update pumpkin position.
+                # Note: x,y arguments are relative to catapult while the px,py
+                # return value are screen coordinates for skeleton hitbox test
+                (px, py) = _set_pumpkin(Catapult.FLY, x, y)
                 self.pumpkin_xyvu = (x, y, v, u)
+                if self.skeletons.check_hit(px, py):
+                    print("POW!")
+                    self.load_pumpkin()
 
         # Update skeleton animations
         s = self.state
